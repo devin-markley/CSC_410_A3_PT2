@@ -13,12 +13,17 @@
 int currentPlayer = 0; // Index of the current player
 int gameActive = 1;    // Game state
 int scores[NUM_PLAYERS] = {0}; // Keep track of each player's score
-
+pthread_mutex_t lock;
+pthread_cond_t cond;
 
 void* hack(void* arg) {
     int id = *(int*)arg;
 
     while (gameActive) {
+        while(id != currentPlayer) {
+          pthread_cond_signal(&cond);
+        }
+        pthread_mutex_lock(&lock);
 
         // Simulate hacking
         printf("Player %d is attempting to hack... -------------- Current Player (%d)\n", id + 1, currentPlayer+1);
@@ -35,7 +40,7 @@ void* hack(void* arg) {
 
         // Move to the next player
         currentPlayer = (currentPlayer + 1) % NUM_PLAYERS;
-
+        pthread_mutex_unlock(&lock);
     }
     
     return NULL;
@@ -47,6 +52,7 @@ int main() {
     int winner = 0;
 
     srand(time(NULL));
+    pthread_mutex_init(&lock, NULL);
     
 
     // Start player threads
@@ -66,6 +72,10 @@ int main() {
     }
 
     printf("--------- GAME OVER! ---------\n\n");
+
+    // Clean up
+    pthread_mutex_destroy(&lock);
+    pthread_cond_destroy(&cond);
 
     int maxScore = scores[0];
     for (int i = 0; i < NUM_PLAYERS; i++){
