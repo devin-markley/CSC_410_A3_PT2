@@ -1,15 +1,17 @@
 // Finding the average of an array - help needed with synchronization
-
 #include <stdio.h>
+#define _XOPEN_SOURCE 600
 #include <pthread.h>
 #include <unistd.h>
-#include <stdlib.h>
 
 #define NUM_THREADS 5
 #define ARRAY_SIZE 20
 
-int numbers[ARRAY_SIZE] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}; 
-int partial_sums[NUM_THREADS] = {0}; 
+int numbers[ARRAY_SIZE] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+int partial_sums[NUM_THREADS] = {0};
+
+pthread_mutex_t lock;
+pthread_barrier_t barrier;
 
 void* func(void* arg) {
     int id = *((int*)arg);
@@ -17,13 +19,16 @@ void* func(void* arg) {
     int start = id * segment_size;          
     int end = (id == NUM_THREADS - 1) ? ARRAY_SIZE : start + segment_size;
 
-    // Phase 1: Calculate the partial sum 
+    // Phase 1: Calculate the partial sum
     printf("Thread %d: Calculating sum from index %d to %d.\n", id, start, end - 1);
     for (int i = start; i < end; i++) {
+        pthread_mutex_lock(&lock);
         partial_sums[id] += numbers[i];
+        pthread_mutex_unlock(&lock);
     }
     printf("Thread %d: Partial sum is %d.\n", id, partial_sums[id]);
 
+    pthread_barrier_wait(&barrier);
 
     // Phase 2: Calculate the total sum and average
     if (id == 0) { // Only the first thread calculates the final average
@@ -42,6 +47,8 @@ int main() {
     pthread_t threads[NUM_THREADS];
     int thread_ids[NUM_THREADS] = {0, 1, 2, 3, 4};
 
+    pthread_mutex_init(&lock, NULL);
+
     // Create threads
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_create(&threads[i], NULL, func, &thread_ids[i]);
@@ -51,6 +58,8 @@ int main() {
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
+
+    pthread_mutex_destroy(&lock);
 
     return 0;
 }
